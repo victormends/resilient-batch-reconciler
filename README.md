@@ -122,7 +122,7 @@ Output from `python scripts/benchmark_reconciler.py` (local synthetic concurrenc
 | :--- | :--- | :--- |
 | Concurrent `AtomicJsonStore` (`8` threads x `25` writes) | `200 / 200` observed updates (`0` lost updates) | `1662.11` |
 | Corrupt JSON Quarantine Recovery | `StoreCorruptionError` raised (`true`), `1` `.corrupt.<ns>` snapshot preserved | `9.89` |
-| 2-Probe vs 3-Probe Inverse-Variance Inflation | 2-probe agreed `sigma=0.8944` -> conflict `4.4721` (`5.0`, `10.0`); 3-probe outlier `0.8881` (`noisy_canary=7.5`) | `0.45` |
+| 2-Probe vs 3-Probe Inverse-Variance Inflation | 2-probe (primary `sigma=1.0`, secondary `sigma=2.0`, conflict inflation=`5.0x`): agreed fused `sigma=0.8944` -> conflict fused `sigma=4.4721` (effective sigmas `5.0`, `10.0`); 3-probe (+ `noisy_canary` `sigma=1.5`): fused `sigma=0.8881` (outlier inflated to `7.5`) | `0.45` |
 | `HitlRemediationQueue` Deduplication (`50` items / `10` keys) | `10` unique added, `40` deduplicated, `10` leased (`critical` first) | `30.83` |
 
 ## License
