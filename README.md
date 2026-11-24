@@ -1,6 +1,8 @@
 # resilient-batch-reconciler
 
-A narrow Python reliability toolkit for multi-worker reconciliation loops on Linux and Windows hosts, requiring a single runtime dependency (`filelock`).
+[![CI](https://github.com/victormends/resilient-batch-reconciler/actions/workflows/ci.yml/badge.svg)](https://github.com/victormends/resilient-batch-reconciler/actions/workflows/ci.yml)
+
+A narrow Python 3.11+ reliability toolkit (CI-verified on Ubuntu 3.11 and 3.12) for multi-worker reconciliation loops on Linux and Windows hosts, requiring a single runtime dependency (`filelock`).
 
 ---
 
@@ -70,10 +72,13 @@ flowchart LR
 
 ## Installation & Quickstart
 
+Requires **Python 3.11+** (CI-verified on Ubuntu 3.11 and 3.12).
+
 ```bash
 pip install -e ".[dev]"
 pytest -v
 python scripts/demo_reconcile.py
+python scripts/benchmark_reconciler.py
 ```
 
 ### Example
@@ -108,6 +113,17 @@ queue.enqueue_remediations(
 )
 batch = queue.drain_batch(limit=5, reviewer="oncall-sre")
 ```
+
+## Measured Local Benchmark Results
+
+Output from `python scripts/benchmark_reconciler.py` (local synthetic concurrency, quarantine, signal fusion, and queue deduplication harness):
+
+| Benchmark Check | Measured Result | Elapsed (`ms`) |
+| :--- | :--- | :--- |
+| Concurrent `AtomicJsonStore` (`8` threads x `25` writes) | `200 / 200` observed updates (`0` lost updates) | `1662.11` |
+| Corrupt JSON Quarantine Recovery | `StoreCorruptionError` raised (`true`), `1` `.corrupt.<ns>` snapshot preserved | `9.89` |
+| 2-Probe vs 3-Probe Inverse-Variance Inflation | 2-probe agreed `sigma=0.8944` -> conflict `4.4721` (`5.0`, `10.0`); 3-probe outlier `0.8881` (`noisy_canary=7.5`) | `0.45` |
+| `HitlRemediationQueue` Deduplication (`50` items / `10` keys) | `10` unique added, `40` deduplicated, `10` leased (`critical` first) | `30.83` |
 
 ## License
 

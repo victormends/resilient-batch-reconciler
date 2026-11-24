@@ -33,3 +33,6 @@ jobs:
 
       - name: Run end-to-end reconciliation demo
         run: python scripts/demo_reconcile.py
+
+      - name: Run local concurrency and quarantine benchmark
+        run: python scripts/benchmark_reconciler.py

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "SRE cloud asset reconciliation, inverse-variance telemetry fusion, canary tripwire rate limiting, and bounded HITL remediation queuing."
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 keywords = [
     "sre",
     "reconciliation",
@@ -24,8 +24,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: System :: Monitoring",
