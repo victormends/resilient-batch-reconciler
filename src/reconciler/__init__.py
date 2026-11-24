@@ -1,14 +1,7 @@
-"""Resilient Batch Reconciler — SRE cloud asset reconciliation and telemetry toolkit."""
+"""Resilient Batch Reconciler: SRE asset reconciliation, telemetry fusion, and HITL queuing."""
 
 from __future__ import annotations
 
-from .grid_batcher import (
-    GRID_CELL_LABELS,
-    SnapshotGridResult,
-    SnapshotInput,
-    batch_compose_snapshot_grids,
-    compose_snapshot_grid,
-)
 from .orchestrator import (
     FleetEtaEstimate,
     IncrementalWindow,
@@ -34,7 +27,6 @@ __all__ = [
     "EnqueueResult",
     "FleetEtaEstimate",
     "FusedSignal",
-    "GRID_CELL_LABELS",
     "HitlRemediationQueue",
     "IncrementalWindow",
     "ProbeReading",
@@ -42,14 +34,10 @@ __all__ = [
     "RateLimitDecision",
     "RateLimiter",
     "RemediationItem",
-    "SnapshotGridResult",
-    "SnapshotInput",
     "StageCheckpoint",
     "StoreCorruptionError",
     "TemplateHashCache",
-    "batch_compose_snapshot_grids",
     "calibrate_median_durations",
-    "compose_snapshot_grid",
     "compute_incremental_window",
     "drain_batch",
     "enqueue_remediations",

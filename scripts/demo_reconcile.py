@@ -1,4 +1,4 @@
-"""End-to-end local runnable demo exercising all 5 resilient-batch-reconciler modules."""
+"""End-to-end local runnable demo exercising all 4 resilient-batch-reconciler modules."""
 
 from __future__ import annotations
 
@@ -7,8 +7,6 @@ import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-
-from PIL import Image, ImageDraw
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "src"
@@ -22,26 +20,13 @@ from reconciler import (
     RateLimitConfig,
     RateLimiter,
     RemediationItem,
-    SnapshotInput,
     StageCheckpoint,
     TemplateHashCache,
     calibrate_median_durations,
-    compose_snapshot_grid,
     compute_incremental_window,
     estimate_fleet_completion,
     fuse_probe_readings,
 )
-
-
-def _synthetic_chart(label: str, accent: tuple) -> Image.Image:
-    img = Image.new("RGB", (320, 180), color=(20, 26, 34))
-    draw = ImageDraw.Draw(img)
-    draw.rectangle([12, 12, 308, 168], outline=(68, 82, 98), width=2)
-    draw.rectangle([28, 72, 92, 150], fill=accent)
-    draw.rectangle([118, 48, 182, 150], fill=accent)
-    draw.rectangle([208, 92, 272, 150], fill=accent)
-    draw.text((24, 24), label, fill=(235, 240, 245))
-    return img
 
 
 def main() -> int:
@@ -122,7 +107,7 @@ def main() -> int:
         )
         leased = queue.drain_batch(limit=5, reviewer="oncall-sre")
 
-        # 4. Incremental overlap window + heap fleet ETA + spec-hash cache + 2x2 grid batcher
+        # 4. Incremental overlap window + heap fleet ETA + spec-hash cache
         window = compute_incremental_window(now - timedelta(hours=1), now=now, overlap_buffer_seconds=1800)
         durations = calibrate_median_durations({"cluster-a": [12.0, 14.0], "cluster-b": [30.0, 28.0], "cluster-c": [18.0]})
         eta = estimate_fleet_completion(["cluster-a", "cluster-b", "cluster-c"], durations, concurrency=2, now_ts=1_700_000_000.0)
@@ -133,16 +118,6 @@ def main() -> int:
         cached_hit = cache.get("cluster-a", spec="v1-prompt")
         cache_invalidated = cache.get("cluster-a", spec="v2-prompt") is None
         assert cached_hit == {"status": "cached"} and cache_invalidated
-
-        grid = compose_snapshot_grid(
-            [
-                SnapshotInput("checkout-latency", _synthetic_chart("checkout-latency", (46, 204, 113))),
-                SnapshotInput("pg-wal-queue", _synthetic_chart("pg-wal-queue", (231, 76, 60))),
-                SnapshotInput("redis-hit-rate", _synthetic_chart("redis-hit-rate", (52, 152, 219))),
-                SnapshotInput("eks-node-cpu", _synthetic_chart("eks-node-cpu", (241, 196, 15))),
-            ]
-        )
-        mapped = grid.map_findings({"B1": {"anomaly": "wal_saturation"}})
 
         summary = {
             "fusion_agreed": {"value": agreed.fused_value, "sigma": agreed.fused_sigma, "confidence": agreed.confidence},
@@ -162,8 +137,6 @@ def main() -> int:
             "incremental_window_seconds": window.window_seconds,
             "fleet_eta_seconds": eta.estimated_remaining_seconds,
             "pending_after_checkpoint": chk.filter_pending("triage", ["cluster-a", "cluster-b"]),
-            "grid_size_px": list(grid.grid_size),
-            "grid_mapped_finding": mapped,
         }
         print("=== Resilient Batch Reconciler End-to-End Demo ===")
         print(json.dumps(summary, indent=2))

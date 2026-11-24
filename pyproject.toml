@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "resilient-batch-reconciler"
 version = "0.1.0"
-description = "SRE cloud asset reconciliation, inverse-variance telemetry fusion, canary tripwire rate limiting, safe HITL remediation queuing, and 2x2 dashboard snapshot batching."
+description = "SRE cloud asset reconciliation, inverse-variance telemetry fusion, canary tripwire rate limiting, and bounded HITL remediation queuing."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"
@@ -32,7 +32,6 @@ classifiers = [
 ]
 dependencies = [
     "filelock",
-    "Pillow",
 ]
 
 [project.optional-dependencies]
