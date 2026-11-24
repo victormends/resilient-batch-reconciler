@@ -35,8 +35,8 @@ It does **not**:
 
 ```mermaid
 flowchart LR
-    P1["Probe A (eBPF / Canary)"] --> SF["signal_fusion<br/>1/sigma^2 Fusion + Conflict Inflation"]
-    P2["Probe B (Exporter / Sidecar)"] --> SF
+    P1["Probe A (Primary HTTP Probe)"] --> SF["signal_fusion<br/>1/sigma^2 Fusion + Conflict Inflation"]
+    P2["Probe B (Metrics Exporter)"] --> SF
     SF --> SS["state_store<br/>AtomicJsonStore + Monotonic Ledger"]
     OR["orchestrator<br/>Window + Heap ETA + Checkpoint + SHA-256 Cache"] --> SS
     SS --> RL["rate_limiter<br/>Caps + Backoff + Canary Tripwire"]
@@ -89,8 +89,8 @@ from reconciler import (
 
 fused = fuse_probe_readings(
     [
-        ProbeReading(source="ebpf_kernel", value=42.5, sigma=1.2, role="primary"),
-        ProbeReading(source="envoy_sidecar", value=45.0, sigma=2.5, role="secondary"),
+        ProbeReading(source="http_health_probe", value=42.5, sigma=1.2, role="primary"),
+        ProbeReading(source="metrics_exporter", value=45.0, sigma=2.5, role="secondary"),
     ],
     conflict_threshold=15.0,
 )

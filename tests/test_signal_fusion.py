@@ -11,8 +11,8 @@ from reconciler.signal_fusion import ProbeReading, fuse_probe_readings
 
 def test_inverse_variance_fusion_weights_and_confidence_interval() -> None:
     readings = [
-        ProbeReading(source="ebpf_kernel", value=20.0, sigma=1.0, role="primary", metric="latency_ms"),
-        ProbeReading(source="envoy_sidecar", value=23.0, sigma=2.0, role="secondary", metric="latency_ms"),
+        ProbeReading(source="http_health_probe", value=20.0, sigma=1.0, role="primary", metric="latency_ms"),
+        ProbeReading(source="metrics_exporter", value=23.0, sigma=2.0, role="secondary", metric="latency_ms"),
     ]
     fused = fuse_probe_readings(readings, conflict_threshold=10.0, z_score=1.28)
     assert fused is not None
@@ -23,9 +23,9 @@ def test_inverse_variance_fusion_weights_and_confidence_interval() -> None:
     assert fused.fused_sigma == pytest.approx(expected_sigma, abs=1e-4)
     assert fused.ci_low == pytest.approx(20.6 - 1.28 * expected_sigma, abs=1e-3)
     assert fused.ci_high == pytest.approx(20.6 + 1.28 * expected_sigma, abs=1e-3)
-    assert fused.primary_source == "ebpf_kernel"
-    assert fused.weights["ebpf_kernel"] == pytest.approx(0.8, abs=1e-4)
-    assert fused.weights["envoy_sidecar"] == pytest.approx(0.2, abs=1e-4)
+    assert fused.primary_source == "http_health_probe"
+    assert fused.weights["http_health_probe"] == pytest.approx(0.8, abs=1e-4)
+    assert fused.weights["metrics_exporter"] == pytest.approx(0.2, abs=1e-4)
 
 
 def test_conflict_inflates_two_disagreeing_probes_symmetrically_and_lowers_confidence() -> None:

@@ -37,14 +37,14 @@ def main() -> int:
         # 1. Multi-probe inverse-variance fusion (agreeing vs 2-probe conflict)
         agreed = fuse_probe_readings(
             [
-                ProbeReading("ebpf_kernel", 41.2, sigma=1.1, role="primary", metric="p95_ms"),
-                ProbeReading("envoy_sidecar", 43.0, sigma=2.4, role="secondary", metric="p95_ms"),
+                ProbeReading("http_health_probe", 41.2, sigma=1.1, role="primary", metric="p95_ms"),
+                ProbeReading("metrics_exporter", 43.0, sigma=2.4, role="secondary", metric="p95_ms"),
             ],
             conflict_threshold=15.0,
         )
         conflicted = fuse_probe_readings(
             [
-                ProbeReading("ebpf_kernel", 40.0, sigma=1.0, role="primary", metric="p95_ms"),
+                ProbeReading("http_health_probe", 40.0, sigma=1.0, role="primary", metric="p95_ms"),
                 ProbeReading("synthetic_canary", 95.0, sigma=2.5, role="secondary", metric="p95_ms"),
             ],
             conflict_threshold=15.0,
@@ -61,7 +61,7 @@ def main() -> int:
                 "latency_ms": agreed.fused_value,
                 "tags": ["tier-1", "postgres"],
             },
-            source="ebpf-reconciler",
+            source="http-reconciler",
             observed_at="2026-11-24T11:55:00Z",
         )
         merged = store.reconcile_asset(
