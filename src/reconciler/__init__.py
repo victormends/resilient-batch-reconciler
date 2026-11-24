@@ -27,7 +27,7 @@ from .remediation_queue import (
     enqueue_remediations,
 )
 from .signal_fusion import FusedSignal, ProbeReading, fuse_probe_readings
-from .state_store import AtomicJsonStore, reconcile_asset_record
+from .state_store import AtomicJsonStore, StoreCorruptionError, reconcile_asset_record
 
 __all__ = [
     "AtomicJsonStore",
@@ -45,6 +45,7 @@ __all__ = [
     "SnapshotGridResult",
     "SnapshotInput",
     "StageCheckpoint",
+    "StoreCorruptionError",
     "TemplateHashCache",
     "batch_compose_snapshot_grids",
     "calibrate_median_durations",

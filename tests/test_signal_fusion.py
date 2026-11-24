@@ -28,7 +28,7 @@ def test_inverse_variance_fusion_weights_and_confidence_interval() -> None:
     assert fused.weights["envoy_sidecar"] == pytest.approx(0.2, abs=1e-4)
 
 
-def test_conflict_inflates_overconfident_primary_variance_and_lowers_confidence() -> None:
+def test_conflict_inflates_two_disagreeing_probes_symmetrically_and_lowers_confidence() -> None:
     agreeing = fuse_probe_readings(
         [
             {"source": "synthetic_probe", "value": 100.0, "sigma": 0.5, "role": "primary"},
@@ -48,10 +48,13 @@ def test_conflict_inflates_overconfident_primary_variance_and_lowers_confidence(
     assert agreeing.conflict_flag is False
     assert conflicting.conflict_flag is True
     assert conflicting.conflict_delta == pytest.approx(40.0, abs=1e-4)
+    # Two-probe conflict has no majority: both sigmas scale symmetrically (0.5->2.5, 2.5->12.5)
+    # so posterior uncertainty widens without inverting precision weights to the noisier probe.
     assert conflicting.effective_sigmas["synthetic_probe"] == pytest.approx(2.5, abs=1e-4)
-    # After inflation 0.5 -> 2.5, both probes have equal weight (0.5 / 0.5) -> midpoint 120.0
-    assert conflicting.fused_value == pytest.approx(120.0, abs=1e-4)
-    assert conflicting.fused_sigma > agreeing.fused_sigma
+    assert conflicting.effective_sigmas["node_exporter"] == pytest.approx(12.5, abs=1e-4)
+    assert conflicting.primary_source == "synthetic_probe"
+    assert conflicting.weights["synthetic_probe"] > conflicting.weights["node_exporter"]
+    assert conflicting.fused_sigma > agreeing.fused_sigma * 4.5
     assert conflicting.confidence < agreeing.confidence
 
 

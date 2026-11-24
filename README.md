@@ -25,7 +25,7 @@ flowchart LR
 ## Core Reliability Modules
 
 ### 1. `reconciler.state_store` — Cross-Process Atomic Persistence & Monotonic Ledger
-- **`AtomicJsonStore`**: Coordinates both in-process threads (`threading.RLock` registry per canonical path) and separate OS processes (`filelock.FileLock`) around read-modify-write JSON cycles. Writes use unique PID/thread/nanosecond temporary files and retry `Path.replace()` across transient Windows `PermissionError` / `OSError` lock contention (e.g., indexers or AV scanners).
+- **`AtomicJsonStore`**: Coordinates both in-process threads (`threading.RLock` registry per canonical path) and separate OS processes (`filelock.FileLock`) around read-modify-write JSON cycles. Writes use unique PID/thread/nanosecond temporary files and retry `Path.replace()` across transient Windows `PermissionError` / `OSError` lock contention. On corrupt JSON, `corrupt_policy="quarantine"` (default) preserves a forensic `.corrupt.<ns>` snapshot and raises `StoreCorruptionError` (fail-closed) rather than silently resetting state to `{}`.
 - **`reconcile_asset_record`**: Enforces a **monotonic evidence ledger invariant**:
   - Absent, empty (`""`, `[]`, `{}`), or `None` fields in degraded probes **never** overwrite previously confirmed facts (including nested map keys), while valid falsy telemetry (`0`, `0.0`, `False`) is explicitly preserved as confirmed state.
   - Every observation—including partial or degraded probes—is appended to `evidence_ledger` with `source`, `observed_at`, `observed_fields`, and `retained_fields`, alongside per-field timestamps in `fact_provenance`.
@@ -47,7 +47,8 @@ $$
 
 - **Conflict Detection & Automatic Variance Inflation**:
   - Selects a primary anchor probe (lowest $\sigma$ among probes marked `role="primary"`, or lowest $\sigma$ overall) and checks $|x_{\text{primary}} - x_{\text{sec}}| \ge \text{conflict\_threshold}$.
-  - When a primary probe disagrees with the majority of secondary probes (including the 2-probe case), its effective $\sigma$ is inflated by `conflict_inflation_factor` (default `5.0`) so an overconfident or stale probe cannot suppress corroborating sensors. When a minority outlier secondary conflicts against an agreeing consensus, only the outlier's variance is inflated.
+  - **2-probe disagreement (no majority):** inflates **both** probes symmetrically by `conflict_inflation_factor` (default `5.0`) so posterior uncertainty ($\sigma_{\text{fused}}$) widens cleanly without artificially reversing weights toward the noisier probe.
+  - **3+-probe consensus vs outlier:** when corroborating secondary probes form a majority against a stale primary, the primary's $\sigma$ is inflated; when a minority secondary outlier disagrees with an agreeing primary consensus, only the outlier's variance is inflated.
   - Exposes `fused_value`, `fused_sigma`, `ci_low`, `ci_high`, `confidence`, `primary_source`, `conflict_flag`, `conflict_delta`, `weights`, and `effective_sigmas`.
 
 ### 3. `reconciler.rate_limiter` & `reconciler.remediation_queue` — Bounded Pacing & Safe HITL Queuing
@@ -75,6 +76,7 @@ $$
 ```bash
 pip install -e ".[dev]"
 pytest -v
+python scripts/demo_reconcile.py
 ```
 
 ### Example

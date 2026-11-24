@@ -6,6 +6,7 @@ import copy
 import json
 import logging
 import os
+import shutil
 import threading
 import time
 from contextlib import contextmanager
@@ -19,6 +20,12 @@ log = logging.getLogger(__name__)
 
 _REGISTRY_LOCK = threading.Lock()
 _PATH_THREAD_LOCKS: Dict[str, threading.RLock] = {}
+
+ALLOWED_CORRUPT_POLICIES = frozenset({"quarantine", "raise", "reset"})
+
+
+class StoreCorruptionError(RuntimeError):
+    """Raised when an existing JSON store file is unreadable or fails structural validation."""
 
 _RESERVED_LEDGER_KEYS = frozenset(
     {
@@ -97,13 +104,20 @@ class AtomicJsonStore:
         max_retries: int = 15,
         retry_delay: float = 0.05,
         sleep_fn: Optional[Callable[[float], None]] = None,
+        corrupt_policy: str = "quarantine",
     ) -> None:
+        policy = str(corrupt_policy).strip().lower()
+        if policy not in ALLOWED_CORRUPT_POLICIES:
+            raise ValueError(
+                f"corrupt_policy must be one of {sorted(ALLOWED_CORRUPT_POLICIES)}, got {corrupt_policy!r}"
+            )
         self.path = Path(path)
         self.lock_path = self.path.with_name(f"{self.path.name}.lock")
         self.lock_timeout = float(lock_timeout)
         self.max_retries = max(1, int(max_retries))
         self.retry_delay = max(0.0, float(retry_delay))
         self._sleep_fn = sleep_fn or time.sleep
+        self.corrupt_policy = policy
         self._thread_lock = _get_thread_lock(str(self.path.resolve()))
 
     @contextmanager
@@ -114,21 +128,42 @@ class AtomicJsonStore:
             with flock:
                 yield
 
+    def _handle_corruption(self, reason: str) -> Dict[str, Any]:
+        if self.corrupt_policy == "reset":
+            log.warning("Resetting corrupt JSON store %s (%s)", self.path, reason)
+            return {}
+        if self.corrupt_policy == "quarantine":
+            quarantine_path = self.path.with_name(f"{self.path.name}.corrupt.{time.time_ns()}")
+            try:
+                if self.path.exists():
+                    shutil.copy2(str(self.path), str(quarantine_path))
+            except OSError as exc:
+                raise StoreCorruptionError(
+                    f"JSON store {self.path} is corrupt ({reason}); quarantine copy failed: {exc}"
+                ) from exc
+            raise StoreCorruptionError(
+                f"JSON store {self.path} is corrupt ({reason}); quarantined copy at {quarantine_path}"
+            )
+        raise StoreCorruptionError(f"JSON store {self.path} is corrupt ({reason})")
+
     def _read_unlocked(self) -> Dict[str, Any]:
         if not self.path.exists():
             return {}
         try:
             raw = self.path.read_text(encoding="utf-8-sig")
-            if not raw.strip():
-                return {}
+        except OSError as exc:
+            raise StoreCorruptionError(f"Failed to read JSON store {self.path}: {exc}") from exc
+
+        if not raw.strip():
+            return {}
+        try:
             data = json.loads(raw)
-            if isinstance(data, dict):
-                return data
-            log.warning("AtomicJsonStore expected dict JSON at %s; returning empty dict", self.path)
-            return {}
-        except (OSError, json.JSONDecodeError) as exc:
-            log.warning("Failed to read JSON store %s: %s", self.path, exc)
-            return {}
+        except json.JSONDecodeError as exc:
+            return self._handle_corruption(f"invalid JSON: {exc}")
+
+        if isinstance(data, dict):
+            return data
+        return self._handle_corruption(f"expected top-level JSON object, got {type(data).__name__}")
 
     def _write_unlocked(self, payload: Mapping[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

@@ -10,7 +10,11 @@ from typing import Tuple
 
 import pytest
 
-from reconciler.state_store import AtomicJsonStore, reconcile_asset_record
+from reconciler.state_store import (
+    AtomicJsonStore,
+    StoreCorruptionError,
+    reconcile_asset_record,
+)
 
 
 def _mp_worker_increment(args: Tuple[str, str, int, int]) -> None:
@@ -208,3 +212,33 @@ def test_atomic_store_concurrent_processes_zero_lost_updates(tmp_path: Path) -> 
     assert shared_asset["observations_count"] == num_procs * ops_per_proc
     assert len(shared_asset["evidence_ledger"]) == num_procs * ops_per_proc
     assert len(shared_asset["probes_seen"]) == num_procs
+
+
+def test_corrupt_json_quarantines_and_fails_closed(tmp_path: Path) -> None:
+    corrupt_bytes = "{broken json payload!!!"
+    store_path = tmp_path / "ledger.json"
+    store_path.write_text(corrupt_bytes, encoding="utf-8")
+
+    # Default policy='quarantine' creates a .corrupt.<ns> snapshot and fails closed.
+    q_store = AtomicJsonStore(store_path)
+    with pytest.raises(StoreCorruptionError):
+        q_store.load()
+    with pytest.raises(StoreCorruptionError):
+        q_store.update(lambda d: {**d, "x": 1})
+
+    quarantined = list(tmp_path.glob("ledger.json.corrupt.*"))
+    assert len(quarantined) >= 1
+    assert quarantined[0].read_text(encoding="utf-8") == corrupt_bytes
+    assert store_path.read_text(encoding="utf-8") == corrupt_bytes
+
+    # Explicit policy='raise' fails closed without creating new quarantine copies.
+    before_count = len(list(tmp_path.glob("ledger.json.corrupt.*")))
+    r_store = AtomicJsonStore(store_path, corrupt_policy="raise")
+    with pytest.raises(StoreCorruptionError):
+        r_store.load()
+    assert len(list(tmp_path.glob("ledger.json.corrupt.*"))) == before_count
+
+    # Explicit policy='reset' recovers cleanly only when opted in.
+    reset_store = AtomicJsonStore(store_path, corrupt_policy="reset")
+    assert reset_store.load() == {}
+

@@ -165,7 +165,12 @@ def fuse_probe_readings(
     effective_sigmas: Dict[str, float] = {lbl: float(rd.sigma) for lbl, rd in labeled}
 
     if conflict_flag:
-        if len(conflicting_secs) > len(agreeing_secs):
+        if len(labeled) == 2:
+            # With only two disagreeing probes there is no majority; inflate both symmetrically
+            # to preserve relative precision ordering while widening posterior uncertainty.
+            for lbl, rd in labeled:
+                effective_sigmas[lbl] = float(rd.sigma) * conflict_inflation_factor
+        elif len(conflicting_secs) > len(agreeing_secs):
             min_conflict_sec_sigma = min(float(rd.sigma) for _, rd, _ in conflicting_secs)
             effective_sigmas[anchor_label] = float(anchor_reading.sigma) * conflict_inflation_factor
             if float(anchor_reading.sigma) >= min_conflict_sec_sigma:
